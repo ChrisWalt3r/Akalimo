@@ -1,0 +1,93 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Roles
+enum Role {
+  SERVICE_RECEIVER
+  SERVICE_PROVIDER
+  ADMIN
+  MEMBER
+  BUSINESS
+  DISTRIBUTOR
+  INSTITUTION
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String?  @unique
+  phone     String   @unique
+  password  String
+  role      Role     @default(SERVICE_RECEIVER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Service Provider specific
+  accessCode String?
+
+  profile   Profile?
+  wallet    Wallet?
+  orders    Order[]        @relation("UserOrders") // As receiver
+  jobs      Order[]        @relation("ProviderJobs") // As provider
+}
+
+model Profile {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  fullName  String
+  idNumber  String? // National ID
+  location  String?
+  latitude  Float?
+  longitude Float?
+  avatarUrl String?
+  
+  services  Service[]
+}
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  services    Service[]
+}
+
+model Service {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id])
+  profileId   String?
+  profile     Profile? @relation(fields: [profileId], references: [id])
+  price       Decimal?
+}
+
+model Order {
+  id                String   @id @default(uuid())
+  serviceReceiverId String
+  serviceReceiver   User     @relation("UserOrders", fields: [serviceReceiverId], references: [id])
+  serviceProviderId String?
+  serviceProvider   User?    @relation("ProviderJobs", fields: [serviceProviderId], references: [id])
+  
+  status            String   @default("PENDING") // PENDING, ACCEPTED, IN_PROGRESS, COMPLETED, CANCELLED
+  description       String?
+  scheduledDate     DateTime?
+  totalAmount       Decimal?
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model Wallet {
+  id      String  @id @default(uuid())
+  userId  String  @unique
+  user    User    @relation(fields: [userId], references: [id])
+  balance Decimal @default(0.00)
+  pin     String? // Encrypted PIN
+}
