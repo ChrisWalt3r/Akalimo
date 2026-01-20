@@ -34,6 +34,11 @@ model User {
   wallet    Wallet?
   orders    Order[]        @relation("UserOrders") // As receiver
   jobs      Order[]        @relation("ProviderJobs") // As provider
+  notifications Notification[]
+  quotations    Quotation[]
+  
+  ratingsGiven    Rating[] @relation("Rater")
+  ratingsReceived Rating[] @relation("Rated")
 }
 
 model Profile {
@@ -55,6 +60,7 @@ model Category {
   name        String    @unique
   description String?
   services    Service[]
+  orders      Order[]
 }
 
 model Service {
@@ -79,9 +85,27 @@ model Order {
   description       String?
   scheduledDate     DateTime?
   totalAmount       Decimal?
+
+  // Location Details
+  locationName      String?
+  latitude          Float?
+  longitude         Float?
+
+  // Order Details
+  photos            String[]
+  quotations        Int      @default(1)
+  serviceType       String?  // E.g. "Sofa", "Room"
+  
+  categoryId        String?
+  category          Category? @relation(fields: [categoryId], references: [id])
   
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+  
+  
+  quotationsList    Quotation[] 
+  updates           ProgressUpdate[]
+  rating            Rating?
 }
 
 model Wallet {
@@ -90,4 +114,78 @@ model Wallet {
   user    User    @relation(fields: [userId], references: [id])
   balance Decimal @default(0.00)
   pin     String? // Encrypted PIN
+  transactions Transaction[]
+}
+
+model Transaction {
+  id        String   @id @default(uuid())
+  walletId  String
+  wallet    Wallet   @relation(fields: [walletId], references: [id])
+  amount    Decimal
+  type      String   // DEPOSIT, WITHDRAWAL, PAYMENT_OUT, PAYMENT_IN, REFUND
+  status    String   @default("COMPLETED")
+  description String?
+  relatedOrderId String?
+  
+  createdAt DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  type      String   @default("INFO") // INFO, ORDER_ALERT, QUOTATION_RECEIVED
+  metadata  Json?    // Store orderId etc here
+  
+  createdAt DateTime @default(now())
+}
+
+model Quotation {
+  id              String   @id @default(uuid())
+  orderId         String
+  order           Order    @relation(fields: [orderId], references: [id])
+  serviceProviderId String
+  serviceProvider User     @relation(fields: [serviceProviderId], references: [id])
+  
+  // Amounts
+  assessmentFee   Decimal  @default(0)
+  serviceFee      Decimal
+  totalAmount     Decimal
+  
+  // Details
+  items           Json? // Array of items { name, qty, price }
+  status          String @default("PENDING") // PENDING, ACCEPTED, REJECTED
+  
+  createdAt       DateTime @default(now())
+}
+
+model ProgressUpdate {
+  id          String   @id @default(uuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id])
+  
+  description String?
+  photos      String[] // URLs of progress photos
+  
+  createdAt   DateTime @default(now())
+}
+
+model Rating {
+  id          String   @id @default(uuid())
+  orderId     String   @unique
+  order       Order    @relation(fields: [orderId], references: [id])
+  
+  raterId     String
+  rater       User     @relation("Rater", fields: [raterId], references: [id])
+  
+  ratedUserId String
+  ratedUser   User     @relation("Rated", fields: [ratedUserId], references: [id])
+  
+  rating      Int      // 1-5
+  comment     String?
+  
+  createdAt   DateTime @default(now())
 }
